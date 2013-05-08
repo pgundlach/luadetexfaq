@@ -4,6 +4,7 @@ local luxor = dofile("luxor.lua")
 local http = require("socket.http")
 
 local explode = string.explode
+local utfvalues = string.utfvalues
 local string = unicode.utf8
 
 local baseurl = "http://texfragen.de"
@@ -26,7 +27,6 @@ notthere = {
 
 function load_image(srctag)
     imagename = string.gsub(srctag,"^/_media/","")
-    w(imagename)
     if imagename == "/lib/images/smileys/fixme.gif" then
         tex.sprint(-2,"(FIXME)")
         return
@@ -126,20 +126,52 @@ function parse_table( tbl )
     return table.concat(ret)
 end
 
+function to_bookmark(codepoint)
+    if codepoint < 256 then
+        return string.format("\\9000\\%03o",codepoint)
+    elseif codepoint < 65536 then
+        return string.format("\\9%03o\\%03o",codepoint / 256, codepoint % 256)
+    else
+        -- ignore for now
+    end
+end
+
 function parse_header( tmp )
     local name = tmp[1][1]
+
+    local bookmark = {}
+    for i in utfvalues(name) do
+      bookmark[#bookmark + 1] = to_bookmark(i)
+    end
+
     local heading_type = tmp[".__name"]
     if heading_type == "h1" then
-        tex.sprint("\\section{")
+        tex.sprint("\\section{\\texorpdfstring{")
         tex.sprint(-2,name)
-        tex.sprint("}")
+        tex.sprint("}{")
+        tex.sprint(-2,table.concat(bookmark))
+        tex.sprint("}}")
         tex.sprint("\\label{")
         tex.sprint(current_pagename)
         tex.sprint("}")
     elseif heading_type == "h2" then
-        tex.sprint("\\subsection{")
+        tex.sprint("\\subsection{\\texorpdfstring{")
         tex.sprint(-2,name)
-        tex.sprint("}")
+        tex.sprint("}{")
+        tex.sprint(-2,table.concat(bookmark))
+        tex.sprint("}}")
+    elseif heading_type == "h3" then
+        tex.sprint("\\subsubsection{\\texorpdfstring{")
+        tex.sprint(-2,name)
+        tex.sprint("}{")
+        tex.sprint(-2,table.concat(bookmark))
+        tex.sprint("}}")
+    elseif heading_type == "h4" then
+        tex.sprint("\\subsubsection{\\texorpdfstring{")
+        tex.sprint(-2,name)
+        tex.sprint("}{")
+        tex.sprint(-2,table.concat(bookmark))
+        tex.sprint("}}")
     end
 end
 
@@ -159,7 +191,7 @@ function parse_element( elt )
         tmp = elt[i]
         if type(tmp) == "table" then
             local name = tmp[".__name"]
-            if name == "h1" or name == "h2" or name == "h3" then
+            if name == "h1" or name == "h2" or name == "h3" or name == "h4" then
                 ret[#ret + 1] = parse_header(tmp)
             elseif name == "ul" then
                 tex.sprint("\\begin{itemize}")
@@ -188,6 +220,10 @@ function parse_element( elt )
                 tex.sprint("{\\itshape ")
                 parse_element( tmp )
                 tex.sprint("}")
+            elseif name == "strong" then
+                tex.sprint("{\\bfseries ")
+                parse_element( tmp )
+                tex.sprint("}")
             elseif name == "a" then
                 parse_link( tmp )
             elseif name == "p" then
@@ -203,7 +239,7 @@ function parse_element( elt )
             end
         else
             if string.match(tmp,"^s+$") then
-                tex.print(tmp)
+                tex.print(" ")
             else
                 local txt = string.gsub(tmp,"\n"," ")
                 tex.print(-2,txt)
