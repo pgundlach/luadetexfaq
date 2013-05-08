@@ -1,4 +1,5 @@
 dofile("debug.lua")
+local luxor = dofile("luxor.lua")
 
 local http = require("socket.http")
 
@@ -6,7 +7,8 @@ local explode = string.explode
 local string = unicode.utf8
 
 local baseurl = "http://texfragen.de"
-local export = "/_export/raw/"
+local export = "/_export/xhtml/"
+local media  = "/_media/"
 
 notthere = {
     ["formelsatz"] = true,
@@ -22,21 +24,41 @@ notthere = {
     ["paket_layout"] = true
 }
 
-function read_page(page)
-    if notthere[page] then
-        return nil
+function load_image(srctag)
+    imagename = string.gsub(srctag,"^/_media/","")
+    w(imagename)
+    if imagename == "/lib/images/smileys/fixme.gif" then
+        tex.sprint(-2,"(FIXME)")
+        return
     end
-    w("read page %q",tostring(page))
-    local txt
-    if not lfs.attributes("raw/"..page) then
-        txt, b, c = http.request(baseurl .. export .. page)
+    if not lfs.attributes("images/"..imagename) then
+        local url = baseurl .. media .. imagename
+        txt, b, c = http.request(url)
         if b == 200 then
-            f = io.open("raw/" .. page,"w")
+            f = io.open("images/" .. imagename,"wb")
             f:write(txt)
             f:close()
         end
     end
-    local f,msg = io.open("raw/" .. page,"r")
+    tex.sprint(string.format("\\par\\noindent\\includegraphics[width=\\maxwidth{\\textwidth}]{images/%s}\\par ",imagename))
+end
+
+function read_page(page)
+    if notthere[page] then
+        return nil
+    end
+    local pagename = page
+    local txt
+    if not lfs.attributes("raw/"..pagename) then
+        local url = baseurl .. export .. pagename
+        txt, b, c = http.request(url)
+        if b == 200 then
+            f = io.open("raw/" .. pagename,"w")
+            f:write(txt)
+            f:close()
+        end
+    end
+    local f,msg = io.open("raw/" .. pagename,"r")
     if not f then
         w(msg)
         return nil
@@ -50,71 +72,146 @@ visited = {}
 pages_to_process = {"Startseite"}
 
 
-function handle_section( a,b )
-    local l = string.len(a)
-    local section
-    if l == 5 then
-        section = "subsection"
-    elseif l == 6 then
-        section = "subsubsection"
-    else
-        assert(false,l)
+function parse_link( elt )
+    -- printtable("link",elt)
+    if elt.class == "urlextern" or elt.class == "mail" then
+        tex.sprint("\\href{")
+        tex.sprint(-2, elt.href)
+        tex.sprint("}{")
+        tex.sprint(-2, elt[1])
+        tex.sprint("}")
+    elseif elt.class == "wikilink1" then
+        local link = string.gsub(elt.href,"^/(.*)%.html$","%1")
+        local link = elt.title
+        pages_to_process[#pages_to_process + 1 ] = link
+        tex.sprint("\\hyperref[")
+        tex.sprint(-2, link)
+        tex.sprint("]{")
+        tex.sprint(-2, elt[1])
+        tex.sprint("}")
     end
-    return string.format("·\\%s{·%s·}·",section,b)
 end
 
-repl = {
- ["["] = "",
- ["]"] = "",
- ["\\"] = "",
- ["$"] = "",
- ["("] = "",
- [")"] = "",
- ["ä"] = "ae",
- ["ö"] = "oe",
- ["ü"] = "ue",
- ["ß"] = "ss",
- [" "] = "_",
- ["…"] = "",
- ["?"] = "",
- ["/"] = "_",
-}
-function sanitize_link( str )
-    str = string.lower(str)
-    str = string.gsub(str,".",repl)
-    return str
-end
-
-function is_mail( str )
-    if string.match(str,"@") then return true end
-    return false
-end
-
-function handle_link( a )
-    -- printtable("handle_link",{a,b})
-    local tab = explode(a,"|")
-    if string.match(tab[1],"^http") then
-        return string.format("·\\href{·%s·}{·%s·}·",tab[1],tab[2] or tab[1])
-    elseif is_mail(tab[1]) then
-        return string.format("·\\href{·%s·}{·%s·}·",tab[1],tab[2] or tab[1])
+function parse_table( tbl )
+    local ret = {}
+    local maxcol = 0
+    for i=1,#tbl do
+        if type(tbl[i]) == "table" then
+            local row = tbl[i]
+            local col = 0
+            for j=1,#row do
+                local cell = row[j]
+                if type(cell) == "table" then
+                    col = col + 1
+                end
+            end
+            maxcol = math.max(maxcol, col)
+        end
     end
-    local dest = sanitize_link(tab[1])
-    pages_to_process[#pages_to_process + 1 ] = dest
-    return string.format("·\\hyperref[·%s·]{·%s·}·",dest,tab[2] or tab[1])
+    ret[#ret + 1] = "\\begin{tabu}spread 0pt{" .. string.rep("X[-1]",maxcol) .. "}\n"
+    for i=1,#tbl do
+        if type(tbl[i]) == "table" then
+            local row = tbl[i]
+            for j=1,#row do
+                local cell = row[j]
+                if type(cell) == "table" then
+                    ret[#ret + 1] = parse_element(cell)
+                    ret[#ret + 1] = " & "
+                end
+            end
+        ret[#ret] = " \\\\\n"
+        end
+    end
+    ret[#ret + 1] = "\\end{tabu}\\par\n"
+    return table.concat(ret)
 end
 
-function handle_verbatim( a )
-    return string.format("·{\\ttfamily ·%s·}·",a)
+function parse_header( tmp )
+    local name = tmp[1][1]
+    local heading_type = tmp[".__name"]
+    if heading_type == "h1" then
+        tex.sprint("\\section{")
+        tex.sprint(-2,name)
+        tex.sprint("}")
+        tex.sprint("\\label{")
+        tex.sprint(current_pagename)
+        tex.sprint("}")
+    elseif heading_type == "h2" then
+        tex.sprint("\\subsection{")
+        tex.sprint(-2,name)
+        tex.sprint("}")
+    end
 end
 
-function handle_it( a )
-    return string.format("·{\\itshape ·%s·}·",a)
+listingcounter = 0
+function handle_listing( txt )
+    listingcounter = listingcounter + 1
+    local filename = string.format("lst/listing%d.tex",listingcounter)
+    f = io.open(filename,"w")
+    f:write(txt)
+    f:close()
+    tex.print(string.format("\\lstinputlisting{%s}",filename))
 end
 
-function handle_double_backslash()
-    return "·\\\\·"
+function parse_element( elt )
+    local ret = {}
+    for i=1,#elt do
+        tmp = elt[i]
+        if type(tmp) == "table" then
+            local name = tmp[".__name"]
+            if name == "h1" or name == "h2" or name == "h3" then
+                ret[#ret + 1] = parse_header(tmp)
+            elseif name == "ul" then
+                tex.sprint("\\begin{itemize}")
+                parse_element(tmp)
+                tex.sprint("\\end{itemize}")
+            elseif name == "ol" then
+                tex.sprint("\\begin{enumerate}")
+                parse_element(tmp)
+                tex.sprint("\\end{enumerate}")
+            elseif name == "table" then
+                ret[#ret + 1] = parse_table( tmp )
+            elseif name == "li" then
+                tex.sprint("\\item")
+                parse_element(tmp)
+            elseif name == "div" then
+                if tmp.class ~= "toc" then
+                    ret[#ret + 1] = parse_element( tmp )
+                end
+            elseif name == "img" then
+                load_image(tmp.src)
+            elseif name == "code" then
+                tex.print("{\\ttfamily ")
+                parse_element( tmp )
+                tex.print("}")
+            elseif name == "em" then
+                tex.sprint("{\\itshape ")
+                parse_element( tmp )
+                tex.sprint("}")
+            elseif name == "a" then
+                parse_link( tmp )
+            elseif name == "p" then
+                parse_element( tmp )
+            elseif name == "br" then
+                tex.sprint("\\\\")
+            elseif name == "acronym" then
+                tex.sprint(-2,tmp[1])
+            elseif name == "pre" then
+                handle_listing(tostring(tmp))
+            else
+                w("name %q",name)
+            end
+        else
+            if string.match(tmp,"^s+$") then
+                tex.print(tmp)
+            else
+                local txt = string.gsub(tmp,"\n"," ")
+                tex.print(-2,txt)
+            end
+        end
+    end
+    return table.concat(ret)
 end
-
 
 
 function process_page( pagename )
@@ -123,24 +220,23 @@ function process_page( pagename )
 
     local txt = read_page(pagename)
     if not txt then return end
-
-    txt = string.gsub(txt,"%s*(=====+)%s*([^=]-)%s*=====+%s*",handle_section)
-    txt = string.gsub(txt,"%[%[(.-)%]%]",handle_link)
-    txt = string.gsub(txt,"''(.-)''",handle_verbatim)
-    txt = string.gsub(txt,"//(.-)//",handle_it)
-    txt = string.gsub(txt,"\\\\",handle_double_backslash)
-    -- txt = string.gsub(txt,"<code latex>","·\\begin{verbatim}·")
-    -- txt = string.gsub(txt,"</code>","·\\end{verbatim}·")
-    txt = string.gsub(txt,"\n\n","·\\par·")
-    txt = string.gsub(txt,"\n"," ")
-
-    local start,stop,protected,active
-    start,stop,protected,active = string.find(txt,"^([^·]*)·([^·]*)·")
-    while start ~= nil do
-        tex.sprint(-2,protected)
-        tex.sprint(active)
-        start,stop,protected,active = string.find(txt,"^(.-)·(.-)·",stop + 1)
+    local ret = luxor.parse_xml(txt,{htmlentities = true})
+    -- find body
+    local body
+    local tmp
+    for i=1,#ret do
+        tmp = ret[i]
+        if type(tmp)=="table" and tmp[".__name"] == "body" then body = tmp break end
     end
+
+    local div_export
+    for i=1,#body do
+        tmp = body[i]
+        if type(tmp)=="table" and tmp[".__name"] == "div" and tmp.class == "dokuwiki export" then div_export = tmp break end
+    end
+    -- tex.sprint("\\clearpage")
+    current_pagename = pagename
+    parse_element(div_export)
 end
 
 
