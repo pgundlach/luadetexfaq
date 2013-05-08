@@ -182,7 +182,7 @@ function handle_listing( txt )
     f = io.open(filename,"w")
     f:write(txt)
     f:close()
-    tex.print(string.format("\\lstinputlisting{%s}",filename))
+    tex.sprint(string.format("\\lstinputlisting{%s}",filename))
 end
 
 function parse_element( elt )
@@ -213,9 +213,9 @@ function parse_element( elt )
             elseif name == "img" then
                 load_image(tmp.src)
             elseif name == "code" then
-                tex.print("{\\ttfamily ")
+                tex.sprint("{\\ttfamily ")
                 parse_element( tmp )
-                tex.print("}")
+                tex.sprint("}")
             elseif name == "em" then
                 tex.sprint("{\\itshape ")
                 parse_element( tmp )
@@ -242,7 +242,10 @@ function parse_element( elt )
                 tex.print(" ")
             else
                 local txt = string.gsub(tmp,"\n"," ")
-                tex.print(-2,txt)
+                tex.sprint(-2,txt)
+                if string.match(txt,"%s$") then
+                    tex.sprint(" ")
+                end
             end
         end
     end
@@ -270,7 +273,6 @@ function process_page( pagename )
         tmp = body[i]
         if type(tmp)=="table" and tmp[".__name"] == "div" and tmp.class == "dokuwiki export" then div_export = tmp break end
     end
-    -- tex.sprint("\\clearpage")
     current_pagename = pagename
     parse_element(div_export)
 end
