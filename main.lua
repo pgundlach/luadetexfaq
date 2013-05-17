@@ -31,16 +31,25 @@ function load_image(srctag)
         tex.sprint(-2,"(FIXME)")
         return
     end
-    if not lfs.attributes("images/"..imagename) then
-        local url = baseurl .. media .. imagename
+    local imagename_base = string.sub(imagename, 1, #imagename - 4)
+    if not lfs.attributes("images/"..imagename) or lfs.attributes("images/".. imagename_base ) then
+        local url = baseurl .. media .. imagename_base .. ".pdf"
         txt, b, c = http.request(url)
         if b == 200 then
-            f = io.open("images/" .. imagename,"wb")
+            f = io.open("images/" .. imagename_base .. ".pdf","wb")
             f:write(txt)
             f:close()
+        else
+            url = baseurl .. media .. imagename
+            txt, b, c = http.request(url)
+            if b == 200 then
+                f = io.open("images/" .. imagename,"wb")
+                f:write(txt)
+                f:close()
+            end
         end
     end
-    tex.sprint(string.format("\\par\\noindent\\includegraphics[width=\\maxwidth{\\textwidth}]{images/%s}\\par ",imagename))
+    tex.sprint(string.format("\\par\\noindent\\includegraphics[width=\\maxwidth{\\textwidth}]{images/%s}\\par ",imagename_base))
 end
 
 function read_page(page)
