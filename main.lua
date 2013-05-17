@@ -77,12 +77,9 @@ function read_page(page)
     return txt
 end
 
-visited = {}
-pages_to_process = {"Startseite"}
 
 
 function parse_link( elt )
-    -- printtable("link",elt)
     if elt.class == "urlextern" or elt.class == "mail" then
         tex.sprint("\\href{")
         tex.sprint(-2, elt.href)
@@ -102,7 +99,6 @@ function parse_link( elt )
 end
 
 function parse_table( tbl )
-    local ret = {}
     local maxcol = 0
     for i=1,#tbl do
         if type(tbl[i]) == "table" then
@@ -117,22 +113,27 @@ function parse_table( tbl )
             maxcol = math.max(maxcol, col)
         end
     end
-    ret[#ret + 1] = "\\begin{tabu}spread 0pt{" .. string.rep("X[-1]",maxcol) .. "}\n"
+    tex.sprint("\\par\\begin{tabu}spread 0pt{" .. string.rep("X[-1]",maxcol) .. "}")
     for i=1,#tbl do
         if type(tbl[i]) == "table" then
             local row = tbl[i]
+            local c = 1
             for j=1,#row do
                 local cell = row[j]
                 if type(cell) == "table" then
-                    ret[#ret + 1] = parse_element(cell)
-                    ret[#ret + 1] = " & "
+                    parse_element(cell)
+                    if c < maxcol then
+                        tex.sprint(" & ")
+                    else
+                        tex.sprint("\\strut ")
+                    end
+                    c = c + 1
                 end
             end
-        ret[#ret] = " \\\\\n"
+        tex.sprint("\\\\")
         end
     end
-    ret[#ret + 1] = "\\end{tabu}\\par\n"
-    return table.concat(ret)
+    tex.sprint("\\end{tabu}\\par")
 end
 
 function to_bookmark(codepoint)
@@ -286,6 +287,9 @@ function process_page( pagename )
     parse_element(div_export)
 end
 
+visited = {}
+-- pages_to_process = {"was_ist_ctan"}
+pages_to_process = {"Startseite"}
 
 while #pages_to_process ~= 0 do
     process_page(table.remove(pages_to_process,1))
