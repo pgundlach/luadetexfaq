@@ -14,7 +14,8 @@
 % \usepackage{luaotfload}
 % \usepackage[EU2]{fontenc}
 % \usepackage{lmodern}
-\usepackage{fourier}
+\usepackage{pifont}
+\usepackage{fontawesome}
 \usepackage{libertine}
 \usepackage{xcolor}
 \usepackage{listings}
@@ -34,9 +35,15 @@
 \setkomafont{pagehead}{\normalfont}
 \setkomafont{pagefoot}{\normalfont}
 \setkomafont{section}{\large\bfseries}
-\setkomafont{sectioning}{\normalfont}
-\chead{\aldineleft\hspace*{1em}{\LARGE Neue \TeX\  FAQ}\hspace*{1em}\aldineright}
+\setkomafont{sectioning}{\normalfont\normalsize\itshape}
+%\chead{\aldineleft\hspace*{1em}{\LARGE Neue \TeX\  FAQ}\hspace*{1em}\aldineright}
+\chead{{\large\reflectbox{\ding{167}}\hspace*{1em}\LARGE Neue \TeX\  FAQ\hspace*{1em}\large\ding{167}}}
 
+\renewcommand*{\othersectionlevelsformat}[1]{%
+  \llap{%
+    \csname the#1\endcsname\autodot\enskip
+  }%
+}
 
 \lstset
 {
@@ -49,7 +56,7 @@
     xleftmargin=\dimexpr\fboxsep+\fboxrule\relax,
     xrightmargin=\dimexpr\fboxsep+\fboxrule\relax,
     breaklines=true,
-    basicstyle=\small\tt,
+    basicstyle=\ttfamily\scriptsize,
     keywordstyle=\color{blue},
     commentstyle=\color[rgb]{0.13,0.54,0.13},
     backgroundcolor=\color{yellow!10},
@@ -67,12 +74,20 @@
     {~}{{\textasciitilde}}1
 }
 
+\renewcommand\fboxsep{0pt}
+\newcommand{\cfbox}[2]{%
+    \colorlet{currentcolor}{.}%
+    {\color{#1}%
+    \fbox{\color{currentcolor}#2}}%
+}
+
 \makeatletter
 \def\maxwidth#1{\ifdim\Gin@nat@width>#1 #1\else\Gin@nat@width\fi}
 \makeatother
 
 \begin{document}
 \RaggedRight
+\sloppy
 
 Die neue \TeX\ FAQ soll Antworten auf die häufigsten Fragen zu \TeX, \LaTeX\ und der Software »drumherum« geben. Dieses Dokument wird automatisch aus dem Inhalt der Webseite \url{http://texfragen.de} erzeugt. Daraus folgen zwei Dinge: die Inhalte der Webseite sind stets auf dem aktuellen Stand und Änderungen müssen im Web vorgenommen werden. Die TeX FAQ ist ein Wiki und kann derzeit von jedem bearbeitet werden. Der Stand dieses PDFs ist vom \today.
 

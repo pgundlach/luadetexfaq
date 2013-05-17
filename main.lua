@@ -49,7 +49,7 @@ function load_image(srctag)
             end
         end
     end
-    tex.sprint(string.format("\\par\\noindent\\includegraphics[width=\\maxwidth{\\textwidth}]{images/%s}\\par ",imagename_base))
+    tex.sprint(string.format("\\par\\noindent\\cfbox{gray}{\\includegraphics[width=\\maxwidth{\\textwidth}]{images/%s}}\\par ",imagename_base))
 end
 
 function read_page(page)
@@ -81,7 +81,7 @@ end
 
 function parse_link( elt )
     if elt.class == "urlextern" or elt.class == "mail" then
-        tex.sprint("\\href{")
+        tex.sprint("{\\fontsize{5pt}{8pt}\\selectfont\\faExternalLink}\\href{")
         tex.sprint(-2, elt.href)
         tex.sprint("}{")
         tex.sprint(-2, elt[1])
@@ -89,7 +89,7 @@ function parse_link( elt )
     elseif elt.class == "wikilink1" then
         local link = elt.title
         pages_to_process[#pages_to_process + 1 ] = link
-        tex.sprint("\\hyperref[")
+        tex.sprint("\\ding{43}\\hyperref[")
         tex.sprint(-2, link)
         tex.sprint("]{")
         tex.sprint(-2, elt[1])
@@ -172,13 +172,13 @@ function parse_header( tmp )
         tex.sprint(-2,table.concat(bookmark))
         tex.sprint("}}")
     elseif heading_type == "h3" then
-        tex.sprint("\\subsubsection{\\texorpdfstring{")
+        tex.sprint("\\subsubsection*{\\texorpdfstring{")
         tex.sprint(-2,name)
         tex.sprint("}{")
         tex.sprint(-2,table.concat(bookmark))
         tex.sprint("}}")
     elseif heading_type == "h4" then
-        tex.sprint("\\subsubsection{\\texorpdfstring{")
+        tex.sprint("\\subsubsection*{\\texorpdfstring{")
         tex.sprint(-2,name)
         tex.sprint("}{")
         tex.sprint(-2,table.concat(bookmark))
