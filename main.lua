@@ -87,7 +87,6 @@ function parse_link( elt )
         tex.sprint(-2, elt[1])
         tex.sprint("}")
     elseif elt.class == "wikilink1" then
-        local link = string.gsub(elt.href,"^/(.*)%.html$","%1")
         local link = elt.title
         pages_to_process[#pages_to_process + 1 ] = link
         tex.sprint("\\hyperref[")
@@ -95,6 +94,8 @@ function parse_link( elt )
         tex.sprint("]{")
         tex.sprint(-2, elt[1])
         tex.sprint("}")
+    elseif elt.class == "wikilink2" then
+        tex.sprint(-2,elt[1])
     end
 end
 
