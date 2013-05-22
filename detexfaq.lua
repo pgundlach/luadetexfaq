@@ -11,6 +11,8 @@ local baseurl = "http://texfragen.de"
 local export = "/_export/xhtml/"
 local media  = "/_media/"
 
+local footnotes = {}
+
 notthere = {
     ["formelsatz"] = true,
     ["tikz"] = true,
@@ -77,6 +79,33 @@ function read_page(page)
     return txt
 end
 
+function parse_footnotes( elt )
+    for i=1,#elt do
+        tmp = elt[i]
+        if type(tmp)=="table" then
+            local footnotetext = {}
+            local footnotetype = string.gsub(tmp[1][1]["id"],"^fn","")
+            -- a footnote
+            local footnoteid = current_pagename .. footnotetype
+            for j=2,#tmp do
+                footnotetext[#footnotetext + 1] = tostring(tmp[j])
+            end
+            footnotes[footnoteid] = table.concat(footnotetext)
+        end
+    end
+end
+
+
+function parse_footnote(elt)
+    local a = elt[1]
+    -- footnotetype is now "__1"
+    local footnotetype = string.gsub(a["id"],"^fnt","")
+    if a["class"] == "fn_top" then
+        tex.sprint("\\footnote{")
+        tex.sprint(-2,footnotes[current_pagename .. footnotetype])
+        tex.sprint("}")
+    end
+end
 
 
 function parse_link( elt )
@@ -218,9 +247,11 @@ function parse_element( elt )
                 tex.sprint("\\item")
                 parse_element(tmp)
             elseif name == "div" then
-                if tmp.class ~= "toc" then
+                if tmp.class ~= "toc" and tmp.class ~="footnotes" then
                     ret[#ret + 1] = parse_element( tmp )
                 end
+            elseif name == "sup" then
+                parse_footnote(tmp)
             elseif name == "img" then
                 load_image(tmp.src)
             elseif name == "code" then
@@ -264,9 +295,11 @@ function parse_element( elt )
 end
 
 
+
 function process_page( pagename )
     if visited[pagename] then return end
     visited[pagename] = true
+    current_pagename = pagename
 
     local txt = read_page(pagename)
     if not txt then return end
@@ -284,12 +317,18 @@ function process_page( pagename )
         tmp = body[i]
         if type(tmp)=="table" and tmp[".__name"] == "div" and tmp.class == "dokuwiki export" then div_export = tmp break end
     end
-    current_pagename = pagename
+    for i=1,#div_export do
+        tmp = div_export[i]
+        if type(tmp)=="table" and tmp[".__name"] == "div" and tmp.class == "footnotes" then
+            parse_footnotes(tmp)
+            break
+        end
+    end
     parse_element(div_export)
 end
 
 visited = {}
--- pages_to_process = {"was_ist_ctan"}
+-- pages_to_process = {"inputenc"}
 pages_to_process = {"Startseite"}
 
 while #pages_to_process ~= 0 do

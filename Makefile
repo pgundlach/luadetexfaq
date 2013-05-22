@@ -1,2 +1,2 @@
 all:
-	lualatex main
+	lualatex detexfaq
