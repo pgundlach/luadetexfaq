@@ -1,0 +1,19 @@
+About
+=====
+This LuaLaTeX document extracts the contents of http://texfragen.de
+and creates a more or less nicely typeset PDF document.
+
+Prerequisites
+=============
+TeX Live 2012 (using LuaTeX and Linux Libertine)
+
+
+Licence:
+========
+MIT style license (no info included yet in the files)
+a.k.a "do whatever you want with the files but don't bother me" :)
+
+Author:
+=======
+Patrick Gundlach
+patrick@gundla.ch
