@@ -33,6 +33,7 @@ function load_image(srctag)
         tex.sprint(-2,"(FIXME)")
         return
     end
+    lfs.mkdir("images")
     local imagename_base = string.sub(imagename, 1, #imagename - 4)
     if not lfs.attributes("images/"..imagename) or lfs.attributes("images/".. imagename_base ) then
         local url = baseurl .. media .. imagename_base .. ".pdf"
@@ -60,11 +61,15 @@ function read_page(page)
     end
     local pagename = page
     local txt
+    lfs.mkdir("raw")
     if not lfs.attributes("raw/"..pagename) then
         local url = baseurl .. export .. pagename
         txt, b, c = http.request(url)
         if b == 200 then
-            f = io.open("raw/" .. pagename,"w")
+            f,err = io.open("raw/" .. pagename,"w")
+            if not f then
+                w(err)
+            end
             f:write(txt)
             f:close()
         end
@@ -218,6 +223,7 @@ end
 listingcounter = 0
 function handle_listing( txt )
     listingcounter = listingcounter + 1
+    lfs.mkdir("lst")
     local filename = string.format("lst/listing%d.tex",listingcounter)
     f = io.open(filename,"w")
     f:write(txt)
